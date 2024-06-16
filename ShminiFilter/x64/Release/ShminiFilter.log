@@ -1,0 +1,14 @@
+﻿  Building 'ShminiFilter' with toolset 'WindowsKernelModeDriver10.0' and the 'Universal' target platform.
+  Stamping x64\Release\ShminiFilter.inf
+  Stamping [Version] section with DriverVer=06/16/2024,17.5.8.521
+  FilterCallbacks.cpp
+  helpers.cpp
+  IOCTL.cpp
+  logging.cpp
+  ShminiFilter.cpp
+  Generating Code...
+  ShminiFilter.vcxproj -> H:\Drivers\ShminiFilter\x64\Release\ShminiFilter.sys
+  Done Adding Additional Store
+  Successfully signed: H:\Drivers\ShminiFilter\x64\Release\ShminiFilter.sys
+  
+  Driver is 'Universal'.

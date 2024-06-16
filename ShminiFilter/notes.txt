@@ -1,0 +1,3 @@
+- Make sure to run ShminiFilterInstall.inf to install driver, not the other one (other one is for building the driver)
+- Make sure to move the ShminiFilter.sys file into C:\Windows\System32\drivers
+- Make sure to turn off patchguard to protect from eprocess/ethread unlinks

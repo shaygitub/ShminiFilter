@@ -1,0 +1,71 @@
+;
+; ShminiFilter.inf
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = "ActivityMonitor"
+ClassGuid   = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
+Provider    = %Msft%
+DriverVer   = 10/09/2001,1.0.0.0
+CatalogFile =
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 12
+ShminiFilter.DriverFiles = 12
+ShminiFilter.UserFiles   = 10,FltMgr
+
+[DefaultInstall.NTamd64]
+OptionDesc = %ShminiFilterServiceDesc%
+CopyFiles = ShminiFilter.DriverFiles, ShminiFilter.UserFiles
+
+[DefaultInstall.NTamd64.Services]
+AddService = %ShminiFilterServiceName%,,ShminiFilter.Service
+
+[ShminiFilter.Service]
+DisplayName    = %ShminiFilterServiceName%
+Description    = %ShminiFilterServiceDesc%
+ServiceBinary  = %12%\ShminiFilter.sys
+ServiceType    = 2 ;    SERVICE_FILE_SYSTEM_DRIVER
+StartType      = 1 ;    SERVICE_SYSTEM_START
+ErrorControl   = 1 ;    SERVICE_ERROR_NORMAL%
+LoadOrderGroup = "FSFilter Activity Monitor"
+AddReg         = ShminiFilter.AddRegistry
+Dependencies   = FltMgr
+
+[ShminiFilter.AddRegistry]
+HKR,%RegInstancesSubkeyName%,%RegDefaultInstanceValueName%,0x00000000,%DefaultInstance%
+HKR,%RegInstancesSubkeyName%"\"%Instance1.Name%,%RegAltitudeValueName%,0x00000000,%Instance1.Altitude%
+HKR,%RegInstancesSubkeyName%"\"%Instance1.Name%,%RegFlagsValueName%,0x00010001,%Instance1.Flags%
+HKR,%RegInstancesSubkeyName%"\"%Instance2.Name%,%RegAltitudeValueName%,0x00000000,%Instance2.Altitude%
+HKR,%RegInstancesSubkeyName%"\"%Instance2.Name%,%RegFlagsValueName%,0x00010001,%Instance2.Flags%
+HKR,%RegInstancesSubkeyName%"\"%Instance3.Name%,%RegAltitudeValueName%,0x00000000,%Instance3.Altitude%
+HKR,%RegInstancesSubkeyName%"\"%Instance3.Name%,%RegFlagsValueName%,0x00010001,%Instance3.Flags%
+
+[Strings]
+Msft               = "Microsoft Corporation"
+ShminiFilterServiceDesc = "ShminiFilter for goofying around :)"
+ShminiFilterServiceName = "ShminiFilter"
+RegInstancesSubkeyName = "Instances"
+RegDefaultInstanceValueName  = "DefaultInstance"
+RegAltitudeValueName    = "Altitude"
+RegFlagsValueName  = "Flags"
+
+DefaultInstance    = "ShminiFilter - Top Instance"
+Instance1.Name     = "ShminiFilter - Middle Instance"
+Instance1.Altitude = "370000"
+Instance1.Flags    = 0x0
+Instance2.Name     = "ShminiFilter - Bottom Instance"
+Instance2.Altitude = "365000"
+Instance2.Flags    = 0x0
+Instance3.Name     = "ShminiFilter - Top Instance"
+Instance3.Altitude = "385000"
+Instance3.Flags    = 0x1 ; Suppress automatic attachments
+
+[DefaultUninstall.NTamd64]
+DelFiles   = ShminiFilter.DriverFiles, ShminiFilter.UserFiles
+DelReg     = ShminiFilter.DelRegistry
+
+[DefaultUninstall.NTamd64.Services]
+DelService = ShminiFilter,0x200

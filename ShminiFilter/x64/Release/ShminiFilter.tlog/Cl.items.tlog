@@ -1,0 +1,5 @@
+H:\Drivers\ShminiFilter\FilterCallbacks.cpp;H:\Drivers\ShminiFilter\x64\Release\FilterCallbacks.obj
+H:\Drivers\ShminiFilter\helpers.cpp;H:\Drivers\ShminiFilter\x64\Release\helpers.obj
+H:\Drivers\ShminiFilter\IOCTL.cpp;H:\Drivers\ShminiFilter\x64\Release\IOCTL.obj
+H:\Drivers\ShminiFilter\logging.cpp;H:\Drivers\ShminiFilter\x64\Release\logging.obj
+H:\Drivers\ShminiFilter\ShminiFilter.cpp;H:\Drivers\ShminiFilter\x64\Release\ShminiFilter.obj
