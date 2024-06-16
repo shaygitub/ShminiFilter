@@ -41,7 +41,6 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   # TODO list:
   1) implement the handlers for the capabilities i mentioned that are not implemented + implement more capabilities i still did not think of
   2) implement the update backup system for SET_INFORMATION/WRITE (not only for deleting files)
-  3) fix the logging system in the UM program to format information into a database file
 
   # Installation process:
   1) extract the project files
