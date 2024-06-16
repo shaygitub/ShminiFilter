@@ -19,16 +19,6 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::CreateFilterCallback(_In
     UNICODE_STRING FileExtension = { 0 };
     UNICODE_STRING FileName = { 0 };
     FLT_PREOP_CALLBACK_STATUS FilterStatus = FLT_PREOP_SYNCHRONIZE;
-    HANDLE DeletedFile = NULL;
-    HANDLE BackupFile = NULL;
-    OBJECT_ATTRIBUTES DeletedAttrs = { 0 };
-    OBJECT_ATTRIBUTES BackupAttrs = { 0 };
-    IO_STATUS_BLOCK StatusBlock = { 0 };
-    UNICODE_STRING DeletedUnicode = { 0 };
-    UNICODE_STRING BackupUnicode = { 0 };
-    FILE_STANDARD_INFORMATION DeletedInformation = { 0 };
-    ULONG64 DeletedFileSize = 0;
-    PVOID DeletedFileData = NULL;
     BOOLEAN IsDirectoryDelete = FALSE;
 
 
@@ -79,63 +69,7 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::CreateFilterCallback(_In
             wcscat_s(BackupFilePath, NameInfo->Name.Buffer);
             wcscat_s(FullDeletedPath, NameInfo->ParentDir.Buffer);
             wcscat_s(FullDeletedPath, NameInfo->Name.Buffer);
-            RtlInitUnicodeString(&DeletedUnicode, FullDeletedPath);
-            InitializeObjectAttributes(&DeletedAttrs, &DeletedUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-                NULL, NULL);
-            RtlInitUnicodeString(&BackupUnicode, BackupFilePath);
-            InitializeObjectAttributes(&BackupAttrs, &BackupUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-                NULL, NULL);
-
-
-            // Read deleted file data to copy it into backup file:
-            Status = ZwCreateFile(&DeletedFile, SYNCHRONIZE | GENERIC_READ, &DeletedAttrs, &StatusBlock,
-                NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN,
-                FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
-            if (!NT_SUCCESS(Status) || DeletedFile == NULL) {
-                DbgPrintEx(0, 0, "Shminifilter preoperation - create-pre operation backup of deleted failed (del_create)\n");
-                goto FinishLabel;
-            }
-            Status = NtQueryInformationFile(DeletedFile, &StatusBlock,
-                &DeletedInformation, sizeof(DeletedInformation), FileStandardInformation);
-            if (!NT_SUCCESS(Status) || DeletedFile == NULL) {
-                DbgPrintEx(0, 0, "Shminifilter preoperation - create-pre operation backup of deleted failed (del_size)\n");
-                ZwClose(DeletedFile);
-                goto FinishLabel;
-            }
-            DeletedFileSize = DeletedInformation.EndOfFile.QuadPart;
-            DeletedFileData = ExAllocatePoolWithTag(NonPagedPool, DeletedFileSize, 'DfBd');
-            if (DeletedFileData == NULL) {
-                DbgPrintEx(0, 0, "Shminifilter preoperation - create-pre operation backup of deleted failed (del_alloc)\n");
-                ZwClose(DeletedFile);
-                goto FinishLabel;
-            }
-            Status = ZwReadFile(DeletedFile, NULL, NULL, NULL, &StatusBlock, DeletedFileData, (ULONG)DeletedFileSize,
-                NULL, NULL);
-            if (!NT_SUCCESS(Status)) {
-                DbgPrintEx(0, 0, "Shminifilter preoperation - create-pre operation backup of deleted failed (del_read)\n");
-                ExFreePool(DeletedFileData);
-                ZwClose(DeletedFile);
-                goto FinishLabel;
-            }
-            ZwClose(DeletedFile);
-
-
-            // Write deleted file data into backup file (make sure to overwrite existing backup):
-            Status = ZwCreateFile(&BackupFile, SYNCHRONIZE | GENERIC_READ, &BackupAttrs, &StatusBlock,
-                NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_SUPERSEDE,
-                FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
-            if (!NT_SUCCESS(Status) || BackupFile == NULL) {
-                DbgPrintEx(0, 0, "Shminifilter preoperation - create-pre operation backup of deleted failed (bck_create)\n");
-                ExFreePool(DeletedFileData);
-                goto FinishLabel;
-            }
-            Status = ZwWriteFile(BackupFile, NULL, NULL, NULL, &StatusBlock, DeletedFileData, (ULONG)DeletedFileSize,
-                NULL, NULL);
-            if (!NT_SUCCESS(Status)) {
-                DbgPrintEx(0, 0, "Shminifilter preoperation - create-pre operation backup of deleted failed (bck_create)\n");
-            }
-            ExFreePool(DeletedFileData);
-            ZwClose(BackupFile);
+            HelperFunctions::CreateBackupOfFile(FullDeletedPath, BackupFilePath);
         }
     }
 
@@ -262,16 +196,6 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
     UNICODE_STRING FileExtension = { 0 };
     UNICODE_STRING FileName = { 0 };
     FLT_PREOP_CALLBACK_STATUS FilterStatus = FLT_PREOP_SYNCHRONIZE;
-    HANDLE DeletedFile = NULL;
-    HANDLE BackupFile = NULL;
-    OBJECT_ATTRIBUTES DeletedAttrs = { 0 };
-    OBJECT_ATTRIBUTES BackupAttrs = { 0 };
-    IO_STATUS_BLOCK StatusBlock = { 0 };
-    UNICODE_STRING DeletedUnicode = { 0 };
-    UNICODE_STRING BackupUnicode = { 0 };
-    FILE_STANDARD_INFORMATION DeletedInformation = { 0 };
-    ULONG64 DeletedFileSize = 0;
-    PVOID DeletedFileData = NULL;
     BOOLEAN IsDirectoryDelete = FALSE;
 
 
@@ -336,63 +260,7 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
         wcscat_s(BackupFilePath, NameInfo->Name.Buffer);
         wcscat_s(FullDeletedPath, NameInfo->ParentDir.Buffer);
         wcscat_s(FullDeletedPath, NameInfo->Name.Buffer);
-        RtlInitUnicodeString(&DeletedUnicode, FullDeletedPath);
-        InitializeObjectAttributes(&DeletedAttrs, &DeletedUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-            NULL, NULL);
-        RtlInitUnicodeString(&BackupUnicode, BackupFilePath);
-        InitializeObjectAttributes(&BackupAttrs, &BackupUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-            NULL, NULL);
-
-
-        // Read deleted file data to copy it into backup file:
-        Status = ZwCreateFile(&DeletedFile, SYNCHRONIZE | GENERIC_READ, &DeletedAttrs, &StatusBlock,
-            NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN,
-            FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
-        if (!NT_SUCCESS(Status) || DeletedFile == NULL) {
-            DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation backup of deleted failed (del_create)\n");
-            goto FinishLabel;
-        }
-        Status = NtQueryInformationFile(DeletedFile, &StatusBlock,
-            &DeletedInformation, sizeof(DeletedInformation), FileStandardInformation);
-        if (!NT_SUCCESS(Status) || DeletedFile == NULL) {
-            DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation backup of deleted failed (del_size)\n");
-            ZwClose(DeletedFile);
-            goto FinishLabel;
-        }
-        DeletedFileSize = DeletedInformation.EndOfFile.QuadPart;
-        DeletedFileData = ExAllocatePoolWithTag(NonPagedPool, DeletedFileSize, 'DfBd');
-        if (DeletedFileData == NULL) {
-            DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation backup of deleted failed (del_alloc)\n");
-            ZwClose(DeletedFile);
-            goto FinishLabel;
-        }
-        Status = ZwReadFile(DeletedFile, NULL, NULL, NULL, &StatusBlock, DeletedFileData, (ULONG)DeletedFileSize,
-            NULL, NULL);
-        if (!NT_SUCCESS(Status)) {
-            DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation backup of deleted failed (del_read)\n");
-            ExFreePool(DeletedFileData);
-            ZwClose(DeletedFile);
-            goto FinishLabel;
-        }
-        ZwClose(DeletedFile);
-
-
-        // Write deleted file data into backup file (make sure to overwrite existing backup):
-        Status = ZwCreateFile(&BackupFile, SYNCHRONIZE | GENERIC_READ, &BackupAttrs, &StatusBlock,
-            NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_SUPERSEDE,
-            FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
-        if (!NT_SUCCESS(Status) || BackupFile == NULL) {
-            DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation backup of deleted failed (bck_create)\n");
-            ExFreePool(DeletedFileData);
-            goto FinishLabel;
-        }
-        Status = ZwWriteFile(BackupFile, NULL, NULL, NULL, &StatusBlock, DeletedFileData, (ULONG)DeletedFileSize,
-            NULL, NULL);
-        if (!NT_SUCCESS(Status)) {
-            DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation backup of deleted failed (bck_create)\n");
-        }
-        ExFreePool(DeletedFileData);
-        ZwClose(BackupFile);
+        HelperFunctions::CreateBackupOfFile(FullDeletedPath, BackupFilePath);
     }
 
     

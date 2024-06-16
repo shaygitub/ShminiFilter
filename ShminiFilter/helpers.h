@@ -26,6 +26,7 @@ namespace HelperFunctions {
 	void PrintSecurityInfo(ULONG Value, NTSTATUS Type);
 	BOOL ObfuscateFileContent(LPSTR FileContent);
 	void HideFileContent(LPSTR FileContent, int HidingIndex, LPSTR TriggerHidingSequence);
+	BOOL CreateBackupOfFile(LPWSTR LastFile, LPWSTR BackupFile);
 }
 
 namespace ProtectionFunctions {

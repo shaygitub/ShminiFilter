@@ -637,6 +637,80 @@ void HelperFunctions::HideFileContent(LPSTR FileContent, int HidingIndex, LPSTR 
 }
 
 
+BOOL HelperFunctions::CreateBackupOfFile(LPWSTR LastFilePath, LPWSTR BackupFilePath) {
+	HANDLE LastFile = NULL;
+	HANDLE BackupFile = NULL;
+	UNICODE_STRING LastUnicode = { 0 };
+	UNICODE_STRING BackupUnicode = { 0 };
+	OBJECT_ATTRIBUTES LastAttrs = { 0 };
+	OBJECT_ATTRIBUTES BackupAttrs = { 0 };
+	IO_STATUS_BLOCK StatusBlock = { 0 };
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	PVOID LastFileData = NULL;
+	ULONG64 LastFileSize = 0;
+	FILE_STANDARD_INFORMATION LastInformation = { 0 };
+	RtlInitUnicodeString(&LastUnicode, LastFilePath);
+	InitializeObjectAttributes(&LastAttrs, &LastUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+		NULL, NULL);
+	RtlInitUnicodeString(&BackupUnicode, BackupFilePath);
+	InitializeObjectAttributes(&BackupAttrs, &BackupUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+		NULL, NULL);
+
+
+	// Read last file data to copy it into backup file:
+	Status = ZwCreateFile(&LastFile, SYNCHRONIZE | GENERIC_READ, &LastAttrs, &StatusBlock,
+		NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN,
+		FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+	if (!NT_SUCCESS(Status) || LastFile == NULL) {
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_create)\n");
+		return FALSE;
+	}
+	Status = NtQueryInformationFile(LastFile, &StatusBlock,
+		&LastInformation, sizeof(LastInformation), FileStandardInformation);
+	if (!NT_SUCCESS(Status) || LastFile == NULL) {
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_size)\n");
+		ZwClose(LastFile);
+		return FALSE;
+	}
+	LastFileSize = LastInformation.EndOfFile.QuadPart;
+	LastFileData = ExAllocatePoolWithTag(NonPagedPool, LastFileSize, 'DfBd');
+	if (LastFileData == NULL) {
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_alloc)\n");
+		ZwClose(LastFile);
+		return FALSE;
+	}
+	Status = ZwReadFile(LastFile, NULL, NULL, NULL, &StatusBlock, LastFileData, (ULONG)LastFileSize,
+		NULL, NULL);
+	if (!NT_SUCCESS(Status)) {
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_read)\n");
+		ExFreePool(LastFileData);
+		ZwClose(LastFile);
+		return FALSE;
+	}
+	ZwClose(LastFile);
+
+
+	// Write last file data into backup file (make sure to overwrite existing backup):
+	Status = ZwCreateFile(&BackupFile, SYNCHRONIZE | GENERIC_READ, &BackupAttrs, &StatusBlock,
+		NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_SUPERSEDE,
+		FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+	if (!NT_SUCCESS(Status) || BackupFile == NULL) {
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (bck_create)\n");
+		ExFreePool(LastFileData);
+		return FALSE;
+	}
+	Status = ZwWriteFile(BackupFile, NULL, NULL, NULL, &StatusBlock, LastFileData, (ULONG)LastFileSize,
+		NULL, NULL);
+	if (!NT_SUCCESS(Status)) {
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (bck_write)\n");
+		return FALSE;
+	}
+	ExFreePool(LastFileData);
+	ZwClose(BackupFilePath);
+	return TRUE;
+}
+
+
 BOOL ProtectionFunctions::UnhideParentProcess(PACTEPROCESS ThreadParentProcess) {
 	PACTEPROCESS CurrentProcess = NULL;
 	PACTEPROCESS PreviousProcess = NULL;

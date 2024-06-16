@@ -1,6 +1,6 @@
 ﻿  Building 'ShminiFilter' with toolset 'WindowsKernelModeDriver10.0' and the 'Universal' target platform.
   Stamping x64\Release\ShminiFilter.inf
-  Stamping [Version] section with DriverVer=06/16/2024,17.5.8.521
+  Stamping [Version] section with DriverVer=06/16/2024,19.41.5.610
   FilterCallbacks.cpp
   helpers.cpp
   IOCTL.cpp
