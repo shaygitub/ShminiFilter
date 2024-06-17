@@ -1,6 +1,8 @@
 #include "FilterCallbacks.h"
 #include "helpers.h"
 #pragma warning (disable : 4996)
+#pragma warning (disable : 4267)
+#pragma warning (disable : 4244)
 
 
 FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::CreateFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
@@ -189,6 +191,8 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
     PFLT_FILE_NAME_INFORMATION NameInfo = NULL;
     PVOID DatabaseEntry = NULL;
     UNICODE_STRING TriggerAccessDeniedParentDir = RTL_CONSTANT_STRING(L"\\VeryImportantStuffDeleteProtection\\");
+    UNICODE_STRING TriggerDeniedRenameParentDir = RTL_CONSTANT_STRING(L"\\VeryImportantStuffRenameProtection\\");
+    UNICODE_STRING TriggerDeniedRenameName = RTL_CONSTANT_STRING(L"CannotRenameToThisName");
     UNICODE_STRING BackupDirectory = RTL_CONSTANT_STRING(L"\\DeleteBackupShminiFilter\\C");
     WCHAR BackupFilePath[1024] = { 0 };
     WCHAR FullDeletedPath[1024] = { 0 };
@@ -197,6 +201,19 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
     UNICODE_STRING FileName = { 0 };
     FLT_PREOP_CALLBACK_STATUS FilterStatus = FLT_PREOP_SYNCHRONIZE;
     BOOLEAN IsDirectoryDelete = FALSE;
+    PFILE_RENAME_INFORMATION RenameParameters = NULL;
+    PFILE_END_OF_FILE_INFORMATION EndOfFileParameters = NULL;
+    PFILE_NAME_INFORMATION ShortNameParameters = NULL;
+    PFILE_POSITION_INFORMATION PositionParameters = NULL;
+    PFILE_LINK_INFORMATION LinkParameters = NULL;
+    PFILE_BASIC_INFORMATION BasicParameters = NULL;
+
+    BOOL IsRename = FALSE;
+    BOOL IsRenameShort = TRUE;
+    IO_STATUS_BLOCK StatusBlock = { 0 };
+    FILE_NAME_INFORMATION FileNameInfo = { 0 };
+    UNICODE_STRING RootDirUnicode = { 0 };
+    UNICODE_STRING RenameUnicode = { 0 };
 
 
     // Get the file information:
@@ -222,12 +239,48 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
 
     // Process only file dispositions / renames to files for delete backup (set-info is not important otherwise):
     switch (Data->Iopb->Parameters.SetFileInformation.FileInformationClass) {
-    case FileRenameInformation:
-    case FileRenameInformationEx:
     case FileDispositionInformation:
     case FileDispositionInformationEx:
+        break;
+
+    case FileRenameInformation:
+    case FileRenameInformationEx:
     case FileRenameInformationBypassAccessCheck:
     case FileRenameInformationExBypassAccessCheck:
+        IsRename = TRUE;
+        RenameParameters = (PFILE_RENAME_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
+        break;
+
+    case FileShortNameInformation:
+        IsRename = TRUE;
+        IsRenameShort = TRUE;
+        ShortNameParameters = (PFILE_NAME_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
+        break;
+
+    case FileEndOfFileInformation:
+        EndOfFileParameters = (PFILE_END_OF_FILE_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
+        DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, changing file size to %llu\n",
+            EndOfFileParameters->EndOfFile.QuadPart);
+        break;
+
+    case FilePositionInformation:
+        PositionParameters = (PFILE_POSITION_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
+        DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, changing file position to %llu\n",
+            PositionParameters->CurrentByteOffset.QuadPart);
+        break;
+
+    case FileLinkInformation:
+        LinkParameters = (PFILE_LINK_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
+        DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, new link: %wZ, %wZ <--> %ws, %lu, %lu\n",
+            LinkParameters->FileName, LinkParameters->Flags, (ULONG)LinkParameters->ReplaceIfExists);
+        break;
+
+    case FileBasicInformation:
+        BasicParameters = (PFILE_BASIC_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
+        DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, new basic information: %llu, %llu, %llu, %llu, %lu\n",
+            BasicParameters->ChangeTime.QuadPart, BasicParameters->CreationTime.QuadPart,
+            BasicParameters->LastAccessTime.QuadPart, BasicParameters->LastWriteTime.QuadPart, 
+            BasicParameters->FileAttributes);
         break;
 
     default:
@@ -239,32 +292,95 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
     Status = FltIsDirectory(FltObjects->FileObject, FltObjects->Instance, &IsDirectoryDelete);
     if (NT_SUCCESS(Status)) {
         if (IsDirectoryDelete) {
-            goto FinishLabel;  // Ignore directory deletion
+            goto FinishLabel;  // Ignore directory deletion/rename
         }
     }
-    if (HelperFunctions::IsInParentDirectory(&NameInfo->ParentDir, &TriggerAccessDeniedParentDir)) {
-        DatabaseCallbacks::IncrementDetected();
-        DbgPrintEx(0, 0, "-- Delete with set information is on a file inside a disclosed directory (parent directory = %wZ, disclosed directory = %wZ), blocking access ...\n",
-            &NameInfo->ParentDir, &TriggerAccessDeniedParentDir);
-        Data->IoStatus.Status = STATUS_ACCESS_DENIED;
-        Data->IoStatus.Information = 0;
-        DatabaseEntry = DatabaseCallbacks::CreateDatabaseEntry(Data, NameInfo, "Deleted file is protected, preventing deletion ..",
-            "SETINFO PREOPERATION");
-        FilterStatus = FLT_PREOP_COMPLETE;
+    if (!IsRename) {
+        if (HelperFunctions::IsInParentDirectory(&NameInfo->ParentDir, &TriggerAccessDeniedParentDir)) {
+            DatabaseCallbacks::IncrementDetected();
+            DbgPrintEx(0, 0, "-- Delete with set information is on a file inside a disclosed directory (parent directory = %wZ, disclosed directory = %wZ), blocking access ...\n",
+                &NameInfo->ParentDir, &TriggerAccessDeniedParentDir);
+            Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+            Data->IoStatus.Information = 0;
+            DatabaseEntry = DatabaseCallbacks::CreateDatabaseEntry(Data, NameInfo, "Deleted file is protected, preventing deletion ..",
+                "SETINFO PREOPERATION");
+            FilterStatus = FLT_PREOP_COMPLETE;
+        }
+        else {
+
+            // Create paths for the deleted file and the backup file:
+            wcscat_s(BackupFilePath, BackupDirectory.Buffer);
+            wcscat_s(BackupFilePath, NameInfo->ParentDir.Buffer);
+            wcscat_s(BackupFilePath, NameInfo->Name.Buffer);
+            wcscat_s(FullDeletedPath, NameInfo->ParentDir.Buffer);
+            wcscat_s(FullDeletedPath, NameInfo->Name.Buffer);
+            HelperFunctions::CreateBackupOfFile(FullDeletedPath, BackupFilePath);
+        }
     }
     else {
+        if (IsRenameShort) {
+            goto InvalidNameCheck;  // ShortInformation only changes the shortened file name
+        }
+        Status = ZwQueryInformationFile(RenameParameters->RootDirectory,
+            &StatusBlock,
+            &FileNameInfo,
+            (ULONG)sizeof(FILE_NAME_INFORMATION) + (MAX_PATH - 1),
+            FileNameInformation);
+        if (Status != STATUS_SUCCESS){
+            goto InvalidNameCheck;  // Cannot get information to determine validation of root directory
+        }
+        RootDirUnicode.Buffer = FileNameInfo.FileName;
+        RootDirUnicode.Length = FileNameInfo.FileNameLength;
+        RootDirUnicode.MaximumLength = FileNameInfo.FileNameLength + sizeof(WCHAR);  // Null terminator not included
+        if (HelperFunctions::IsInParentDirectory(&RootDirUnicode, &TriggerDeniedRenameParentDir)) {
+            DatabaseCallbacks::IncrementDetected();
+            DbgPrintEx(0, 0, "-- Rename is to a file inside a disclosed directory (parent directory = %wZ, disclosed directory = %wZ), blocking access ...\n",
+                &NameInfo->ParentDir, &TriggerDeniedRenameParentDir);
+            Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+            Data->IoStatus.Information = 0;
+            DatabaseEntry = DatabaseCallbacks::CreateDatabaseEntry(Data, NameInfo, "Rename root directory is protected, preventing rename ..",
+                "SETINFO PREOPERATION");
+            FilterStatus = FLT_PREOP_COMPLETE;
+            goto DatabaseManipulation;
+        }
 
-        // Create paths for the deleted file and the backup file:
-        wcscat_s(BackupFilePath, BackupDirectory.Buffer);
-        wcscat_s(BackupFilePath, NameInfo->ParentDir.Buffer);
-        wcscat_s(BackupFilePath, NameInfo->Name.Buffer);
-        wcscat_s(FullDeletedPath, NameInfo->ParentDir.Buffer);
-        wcscat_s(FullDeletedPath, NameInfo->Name.Buffer);
-        HelperFunctions::CreateBackupOfFile(FullDeletedPath, BackupFilePath);
+    InvalidNameCheck:
+        if (IsRenameShort) {
+            RenameUnicode.Buffer = ShortNameParameters->FileName;
+            RenameUnicode.Length = ShortNameParameters->FileNameLength;
+            RenameUnicode.MaximumLength = ShortNameParameters->FileNameLength + sizeof(WCHAR);
+        }
+        else {
+            RenameUnicode.Buffer = RenameParameters->FileName;
+            RenameUnicode.Length = wcslen(RenameParameters->FileName) * sizeof(WCHAR);
+            RenameUnicode.MaximumLength = (wcslen(RenameParameters->FileName) + 1) * sizeof(WCHAR);
+        }
+        if (RtlCompareUnicodeString(&TriggerDeniedRenameName, &RenameUnicode, TRUE) == 0) {
+            DatabaseCallbacks::IncrementDetected();
+            DbgPrintEx(0, 0, "-- Rename is to a blocked file name (file name = %wZ), blocking rename ...\n",
+                &RenameUnicode);
+            Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+            Data->IoStatus.Information = 0;
+            DatabaseEntry = DatabaseCallbacks::CreateDatabaseEntry(Data, NameInfo, "Rename file name is protected, preventing rename ..",
+                "SETINFO PREOPERATION");
+            FilterStatus = FLT_PREOP_COMPLETE;
+            goto DatabaseManipulation;
+        }
+        if (!IsRenameShort) {
+            if (FileNameInfo.FileName == NULL) {
+                DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation with rename flag: NULL, %wZ, %lu, %lu\n",
+                    &RenameUnicode, RenameParameters->Flags, (ULONG)RenameParameters->ReplaceIfExists);
+            }
+            else {
+                DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation with rename flag: %wZ, %wZ, %lu, %lu\n",
+                    &RootDirUnicode, &RenameUnicode, RenameParameters->Flags, (ULONG)RenameParameters->ReplaceIfExists);
+            }
+        }
     }
 
-    
+
     // Add entry to database:
+    DatabaseManipulation:
     if (DatabaseEntry != NULL) {
         if (!DatabaseCallbacks::AddEntryToDatabase(DatabaseEntry, ((PDETECTED_ENTRY)DatabaseEntry)->EntrySize)) {
             DatabaseCallbacks::DeleteDatabase();
