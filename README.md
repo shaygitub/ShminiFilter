@@ -15,6 +15,8 @@ the system already) and communicates with the driver using IOCTLs to get the gen
 - IRP_MJ_SET_INFORMATION:
   1) protection against deletion of files inside a disclosed parent directory with IRP_MJ_SET_INFORMATION as the deletion primitive
   2) backup system of any undisclosed deleted files, saves the last version of the file before the deletion
+  3) protection against copying a file into a disclosed path (with FileRenameInformation/Ex)
+  4) protection against rename of a file to a certain file name (also FileRenameInformation/Ex)
 - IRP_MJ_CREATE:
   1) protection against deletion of files inside a disclosed parent directory with IRP_MJ_CREATE as the deletion primitive
   2) backup system of any undisclosed deleted files, saves the last version of the file before the deletion
