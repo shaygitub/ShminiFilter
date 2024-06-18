@@ -12,13 +12,16 @@ namespace PreOperationCallbacks {
     FLT_PREOP_CALLBACK_STATUS FLTAPI CreateFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
         _In_ PCFLT_RELATED_OBJECTS FltObjects,
         _Flt_CompletionContext_Outptr_ PVOID* CompletionContext);
-    FLT_PREOP_CALLBACK_STATUS ReadFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
-        _In_ PCFLT_RELATED_OBJECTS FltObjects,
-        _Flt_CompletionContext_Outptr_ PVOID* CompletionContext);
-    FLT_PREOP_CALLBACK_STATUS DirectoryControlFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
-        _In_ PCFLT_RELATED_OBJECTS FltObjects,
-        _Flt_CompletionContext_Outptr_ PVOID* CompletionContext);
     FLT_PREOP_CALLBACK_STATUS SetInformationFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
+        _In_ PCFLT_RELATED_OBJECTS FltObjects,
+        _Flt_CompletionContext_Outptr_ PVOID* CompletionContext);
+    FLT_PREOP_CALLBACK_STATUS FileSystemControlFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
+        _In_ PCFLT_RELATED_OBJECTS FltObjects,
+        _Flt_CompletionContext_Outptr_ PVOID* CompletionContext);
+    FLT_PREOP_CALLBACK_STATUS WriteFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
+        _In_ PCFLT_RELATED_OBJECTS FltObjects,
+        _Flt_CompletionContext_Outptr_ PVOID* CompletionContext);
+    FLT_PREOP_CALLBACK_STATUS GeneralFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
         _In_ PCFLT_RELATED_OBJECTS FltObjects,
         _Flt_CompletionContext_Outptr_ PVOID* CompletionContext);
 }
@@ -37,7 +40,7 @@ namespace PostOperationCallbacks {
         _In_ PCFLT_RELATED_OBJECTS FltObjects,
         _In_opt_ PVOID CompletionContext,
         _In_ FLT_POST_OPERATION_FLAGS Flags);
-    FLT_POSTOP_CALLBACK_STATUS SetInformationFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
+    FLT_POSTOP_CALLBACK_STATUS GeneralFilterCallback(_Inout_ PFLT_CALLBACK_DATA Data,
         _In_ PCFLT_RELATED_OBJECTS FltObjects,
         _In_opt_ PVOID CompletionContext,
         _In_ FLT_POST_OPERATION_FLAGS Flags);

@@ -17,14 +17,14 @@ const FLT_OPERATION_REGISTRATION CallbacksArray[] = {
 	{
 		IRP_MJ_READ,
 		FLTFL_OPERATION_REGISTRATION_SKIP_PAGING_IO,
-		PreOperationCallbacks::ReadFilterCallback,
+		PreOperationCallbacks::GeneralFilterCallback,
 		PostOperationCallbacks::ReadFilterCallback
 	},  // Create read event to detect readings and data read from file
 
 	{
 	    IRP_MJ_DIRECTORY_CONTROL,
 	    NULL,
-	    PreOperationCallbacks::DirectoryControlFilterCallback,
+	    PreOperationCallbacks::GeneralFilterCallback,
 	    PostOperationCallbacks::DirectoryControlFilterCallback
 	},  // Control access to files/directories for file disclosing and similar functions
 	
@@ -32,31 +32,30 @@ const FLT_OPERATION_REGISTRATION CallbacksArray[] = {
 		IRP_MJ_SET_INFORMATION,
 		FLTFL_OPERATION_REGISTRATION_SKIP_PAGING_IO,
 		PreOperationCallbacks::SetInformationFilterCallback,
-		PostOperationCallbacks::SetInformationFilterCallback
+		PostOperationCallbacks::GeneralFilterCallback
 	},  //  Delete restrictions and backup of deleted files
 
-	/*
 	{
 		IRP_MJ_CLEANUP,
 		0,
-		PreOperationCallbacks::CleanupCallback,
-		PostOperationCallbacks::CleanupCallback
-	},
-
-	{
-	  IRP_MJ_WRITE,
-	  0,
-	  PreOperationCallbacks::WriteFilterCallback,
-	  NULL
-	},
+		PreOperationCallbacks::GeneralFilterCallback,
+		PostOperationCallbacks::GeneralFilterCallback
+	},  // Trace closed handles
 
 	{
 	  IRP_MJ_FILE_SYSTEM_CONTROL,
 	  0,
 	  PreOperationCallbacks::FileSystemControlFilterCallback,
-	  NULL
-	},
-	*/
+	  PostOperationCallbacks::GeneralFilterCallback,
+	},  // Trace FSCTLs, mostly used to trace DeviceIoControl calls
+
+	{
+	  IRP_MJ_WRITE,
+	  0,
+	  PreOperationCallbacks::WriteFilterCallback,
+	  PostOperationCallbacks::GeneralFilterCallback,
+	},  // Restrict possible write operations and backup last data of file before write
+
 	{ IRP_MJ_OPERATION_END }
 };
 const FLT_REGISTRATION RegistrationInfo = {
