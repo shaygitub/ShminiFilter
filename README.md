@@ -7,9 +7,6 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   1) replacing all text information in read buffer after a certain sequence (for example: "The password is:") with '*'s to hide private information
   2) disclosing all information read from a file in a certain parent directory (here i replaced all the information in the buffer with "ACCESS_DENIED XXX")
   3) encryption of all information in any file with a certain file suffix (here: ".... dirty.txt") with AES support in kernel mode library bcrypt.lib
-- IRP_MJ_WRITE:
-  1) protection against writing into a file in a certain disclosed parent directory (STILL NOT IMPLEMENTED)
-  2) backup of undisclosed file before the write update in a certain path like implemented when fully deleting files (STILL NOT IMPLEMENTED)
 - IRP_MJ_DIRECTORY_CONTROL:
   1) protection against seeing files inside a disclosed parent directory (manipulation of list returned by NtQueryDirectoryFile)
 - IRP_MJ_SET_INFORMATION:
@@ -31,6 +28,7 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   2) Prevention of written vulnurable plaintext information by detecting known prefix patterns and writing only the information before these patterns
   3) encryption of all written information to specific files (also used AES here)
   4) if the write is valid, backup of the file before the last write operation is performed
+
   # Logging system of the driver and transfer to the UM program:
   1) the driver always saves a struct at the beginning of the allocated non-paged memory named MINIFILTER_STARTINFO. this struct includes basic
      information counters that were logged by the driver like read/write/create preop/postop operations that passed through the driver and the amount of
@@ -50,8 +48,7 @@ the system already) and communicates with the driver using IOCTLs to get the gen
      waits for the next update
 
   # TODO list:
-  1) implement the handlers for the capabilities i mentioned that are not implemented + implement more capabilities i still did not think of
-  2) implement the update backup system for SET_INFORMATION/WRITE (not only for deleting files)
+  1) Implement more capabilities i still did not think of
 
   # Installation process:
   1) extract the project files
