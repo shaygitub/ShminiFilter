@@ -22,7 +22,9 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   1) protection against deletion of files inside a disclosed parent directory with IRP_MJ_CREATE as the deletion primitive
   2) backup system of any undisclosed deleted files, saves the last version of the file before the deletion
   3) protection against getting a handle to a file/folder inside a disclosed directory
- 
+ - IRP_MJ_CLEANUP:
+  1) regular tracing of calls to cleanup an object provided (usually a handle closed with CloseHandle/NtClose)
+
   # Logging system of the driver and transfer to the UM program:
   1) the driver always saves a struct at the beginning of the allocated non-paged memory named MINIFILTER_STARTINFO. this struct includes basic
      information counters that were logged by the driver like read/write/create preop/postop operations that passed through the driver and the amount of
