@@ -1,5 +1,5 @@
 # SminiFilter
-This is a minifilter driver customized to protect against several filesystem operations (currently: IRP_MJ_READ, IRP_MJ_WRITE, IRP_MJ_DIRECTORY_CONTROL, IRP_MJ_SET_INFORMATION, IRP_MJ_CREATE). This minifilter comes included with a UM program that launches the minifilter driver (in case its not protecting
+This is a minifilter driver customized to protect against several filesystem operations. This minifilter comes included with a UM program that launches the minifilter driver (in case its not protecting
 the system already) and communicates with the driver using IOCTLs to get the general and special logs of the filesystem by the driver
 
 # Supported protection mechanisms:
@@ -24,7 +24,9 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   3) protection against getting a handle to a file/folder inside a disclosed directory
  - IRP_MJ_CLEANUP:
   1) regular tracing of calls to cleanup an object provided (usually a handle closed with CloseHandle/NtClose)
-
+ - IRP_MJ_FILE_SYSTEM_CONTROL:
+  1) Tracing calls to DeviceIoControl/KM similar functions, logging of passing method (BUFFERED/DIRECT/NEITHER) and log of I/O buffers and lengths
+     
   # Logging system of the driver and transfer to the UM program:
   1) the driver always saves a struct at the beginning of the allocated non-paged memory named MINIFILTER_STARTINFO. this struct includes basic
      information counters that were logged by the driver like read/write/create preop/postop operations that passed through the driver and the amount of
