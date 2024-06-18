@@ -26,7 +26,11 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   1) regular tracing of calls to cleanup an object provided (usually a handle closed with CloseHandle/NtClose)
  - IRP_MJ_FILE_SYSTEM_CONTROL:
   1) Tracing calls to DeviceIoControl/KM similar functions, logging of passing method (BUFFERED/DIRECT/NEITHER) and log of I/O buffers and lengths
-     
+ - IRP_MJ_WRITE:
+  1) Preventing writing information to specific root directories/files/directories
+  2) Prevention of written vulnurable plaintext information by detecting known prefix patterns and writing only the information before these patterns
+  3) encryption of all written information to specific files (also used AES here)
+  4) if the write is valid, backup of the file before the last write operation is performed
   # Logging system of the driver and transfer to the UM program:
   1) the driver always saves a struct at the beginning of the allocated non-paged memory named MINIFILTER_STARTINFO. this struct includes basic
      information counters that were logged by the driver like read/write/create preop/postop operations that passed through the driver and the amount of
