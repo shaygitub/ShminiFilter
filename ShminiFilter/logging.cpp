@@ -1,4 +1,5 @@
 #include "FilterCallbacks.h"
+#include "helpers.h"
 #pragma warning(disable : 4996)
 #pragma warning(disable : 6305)
 #pragma warning(disable : 4267)
@@ -57,29 +58,36 @@ BOOL DatabaseCallbacks::IncrementByInformation(PFLT_CALLBACK_DATA Data,
 	// Increment initial calls by registered filtering:
 	__try {
 		switch (InitialCall) {
-		case EntryIdentifier:
-			if (UpdateIdentifier == 0xFFFFFFFFFFFFFFFF) {
-				UpdateIdentifier = 0;
-			}
-			else {
-				UpdateIdentifier++;
-			}
-			((PMINIFILTER_STARTINFO)Database)->EntryIdentifier = UpdateIdentifier;
-			break;
-		case CreatePreCount: ((PMINIFILTER_STARTINFO)Database)->CreatePreCount++; break;
-		case ReadPreCount: ((PMINIFILTER_STARTINFO)Database)->ReadPreCount++; break;
-		case WritePreCount: ((PMINIFILTER_STARTINFO)Database)->WritePreCount++; break;
-		case SetInfoPreCount: ((PMINIFILTER_STARTINFO)Database)->SetInfoPreCount++; break;
-		case CleanupPreCount: ((PMINIFILTER_STARTINFO)Database)->CleanupPreCount++; break;
-		case FileSysCntlPreCount: ((PMINIFILTER_STARTINFO)Database)->FileSysCntlPreCount++; break;
-		case DirControlPreCount: ((PMINIFILTER_STARTINFO)Database)->DirControlPreCount++; break;
-		case CreatePostCount: ((PMINIFILTER_STARTINFO)Database)->CreatePostCount++; break;
-		case ReadPostCount: ((PMINIFILTER_STARTINFO)Database)->ReadPostCount++; break;
-		case WritePostCount: ((PMINIFILTER_STARTINFO)Database)->WritePostCount++; break;
-		case SetInfoPostCount: ((PMINIFILTER_STARTINFO)Database)->SetInfoPostCount++; break;
-		case CleanupPostCount: ((PMINIFILTER_STARTINFO)Database)->CleanupPostCount++; break;
-		case FileSysCntlPostCount: ((PMINIFILTER_STARTINFO)Database)->FileSysCntlPostCount++; break;
-		case DirControlPostCount: ((PMINIFILTER_STARTINFO)Database)->DirControlPostCount++; break;
+		case EntryIdentifier: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->EntryIdentifier,
+			TRUE, &UpdateIdentifier); break;
+		case CreatePreCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->CreatePreCount,
+			FALSE, NULL); break;
+		case ReadPreCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->ReadPreCount,
+			FALSE, NULL); break;
+		case WritePreCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->WritePreCount,
+			FALSE, NULL); break;
+		case SetInfoPreCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->SetInfoPreCount,
+			FALSE, NULL); break;
+		case CleanupPreCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->CleanupPreCount,
+			FALSE, NULL); break;
+		case FileSysCntlPreCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->FileSysCntlPreCount,
+			FALSE, NULL); break;
+		case DirControlPreCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->DirControlPreCount,
+			FALSE, NULL); break;
+		case CreatePostCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->CreatePostCount,
+			FALSE, NULL); break;
+		case ReadPostCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->ReadPostCount,
+			FALSE, NULL); break;
+		case WritePostCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->WritePostCount,
+			FALSE, NULL); break;
+		case SetInfoPostCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->SetInfoPostCount,
+			FALSE, NULL); break;
+		case CleanupPostCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->CleanupPostCount,
+			FALSE, NULL); break;
+		case FileSysCntlPostCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->FileSysCntlPostCount,
+			FALSE, NULL); break;
+		case DirControlPostCount: HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->DirControlPostCount,
+			FALSE, NULL); break;
 		default:
 			break;
 		}
@@ -95,73 +103,92 @@ BOOL DatabaseCallbacks::IncrementByInformation(PFLT_CALLBACK_DATA Data,
 		FltParseFileName(&Data->Iopb->TargetFileObject->FileName, &FileExtension, NULL, &FileName);
 		__try {
 			if (FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess, FILE_GENERIC_READ)) {
-				((PMINIFILTER_STARTINFO)Database)->GenericReadCount++;
+				HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->GenericReadCount,
+					FALSE, NULL);
 			}
 			if (FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess, FILE_GENERIC_WRITE)) {
-				((PMINIFILTER_STARTINFO)Database)->GenericWriteCount++;
+				HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->GenericWriteCount,
+					FALSE, NULL);	
 			}
 			if (FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess, FILE_GENERIC_EXECUTE)) {
-				((PMINIFILTER_STARTINFO)Database)->GenericExecuteCount++;
+				HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->GenericExecuteCount,
+					FALSE, NULL);
 			}
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
-			((PMINIFILTER_STARTINFO)Database)->AccessViolationCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->AccessViolationCount,
+				FALSE, NULL);
 		}
 
 
 		// Create string for sharing information:
 		__try {
 			if (FlagOn(Data->Iopb->Parameters.Create.ShareAccess, FILE_SHARE_READ)) {
-				((PMINIFILTER_STARTINFO)Database)->FileShareReadCount++;
+				HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->FileShareReadCount,
+					FALSE, NULL);
 			}
 			if (FlagOn(Data->Iopb->Parameters.Create.ShareAccess, FILE_SHARE_WRITE)) {
-				((PMINIFILTER_STARTINFO)Database)->FileShareWriteCount++;
+				HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->FileShareWriteCount,
+					FALSE, NULL);
 			}
 			if (FlagOn(Data->Iopb->Parameters.Create.ShareAccess, FILE_SHARE_DELETE)) {
-				((PMINIFILTER_STARTINFO)Database)->FileShareDeleteCount++;
+				HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->FileShareDeleteCount,
+					FALSE, NULL);
 			}
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
-			((PMINIFILTER_STARTINFO)Database)->AccessViolationCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->AccessViolationCount,
+				FALSE, NULL);
 		}
 
 
 		// Add specific information:
 		if (Data->RequestorMode == UserMode) {
-			((PMINIFILTER_STARTINFO)Database)->UserModeCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->UserModeCount,
+				FALSE, NULL);
 		}
 		else {
-			((PMINIFILTER_STARTINFO)Database)->KernelModeCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->KernelModeCount,
+				FALSE, NULL);
 		}
 		if (RtlCompareUnicodeString(&FileExtension, &TextExtension, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->TextCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->TextCount,
+				FALSE, NULL);
 		}
 		else {
-			((PMINIFILTER_STARTINFO)Database)->ByteCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->ByteCount,
+				FALSE, NULL);
 		}
 
 
 		// Check for specific folders/files:
 		if (RtlCompareUnicodeString(&NameInfo->ParentDir, &CRoot, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->CRootCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->CRootCount,
+				FALSE, NULL);
 		}
 		if (RtlCompareUnicodeString(&NameInfo->ParentDir, &WindowsRoot, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->WindowsRootCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->WindowsRootCount,
+				FALSE, NULL);
 		}
 		if (RtlCompareUnicodeString(&NameInfo->ParentDir, &System32Root, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->System32RootCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->System32RootCount,
+				FALSE, NULL);
 		}
 		if (RtlCompareUnicodeString(&NameInfo->ParentDir, &DriversRoot, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->DriversRootCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->DriversRootCount,
+				FALSE, NULL);
 		}
 		if (RtlCompareUnicodeString(&FileName, &Ntoskrnl, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->NtoskrnlCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->NtoskrnlCount,
+				FALSE, NULL);
 		}
 		if (RtlCompareUnicodeString(&FileName, &NtDll, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->NtdllCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->NtdllCount,
+				FALSE, NULL);
 		}
 		if (RtlCompareUnicodeString(&FileName, &User32Dll, TRUE)) {
-			((PMINIFILTER_STARTINFO)Database)->User32dllCount++;
+			HelperFunctions::IncrementBuffer(&((PMINIFILTER_STARTINFO)Database)->User32dllCount,
+				FALSE, NULL);
 		}
 		((PMINIFILTER_STARTINFO)Database)->CopiedBytesCount += *InformationSize;
 	}

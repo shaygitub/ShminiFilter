@@ -76,6 +76,7 @@ typedef struct _DRIVER_PARAMS {
 // Global variables:
 const char* MinifilterSymlink = "\\\\.\\ShminiFilter";
 const char* TempDatabaseName = "C:\\Users\\shayg\\Downloads\\ShminiFilter\\ShminiFilter\\ShminiClient\\database_update.txt";
+char UpdateCommand[1024] = "python.exe C:\\Users\\shayg\\Downloads\\ShminiFilter\\ShminiFilter\\DatabaseManipulator\\DbMan.py ";
 HANDLE MinifilterHandle = INVALID_HANDLE_VALUE;
 
 
@@ -201,9 +202,9 @@ int main() {
 	DWORD LastError = 0;
 	DWORD BytesReturned = 0;
 	DRIVER_PARAMS DriverParams = { 0 };
-	char UpdateCommand[1024] = "python.exe C:\\Users\\shayg\\Downloads\\ShminiFilter\\ShminiFilter\\DatabaseManipulator\\DbMan.py ";
+	strcat_s(UpdateCommand, TempDatabaseName);
 
-
+	
 	// Make sure that service is running:
 	system("sc start ShminiFilter");
 
@@ -233,6 +234,7 @@ int main() {
 		}
 		printf("[+] Got updated database info from driver, calling program to parse update information\n");
 		PrintUpdateInformation((PVOID)DriverParams.FirstParameter, DriverParams.SecondParameter);
+		/*
 		DatabaseFile = CreateFileA(TempDatabaseName, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
 			NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (MinifilterHandle == INVALID_HANDLE_VALUE) {
@@ -250,8 +252,8 @@ int main() {
 			return FALSE;
 		}
 		CloseHandle(DatabaseFile);
-		strcat_s(UpdateCommand, TempDatabaseName);
 		system(UpdateCommand);
+		*/
 		VirtualFree((PVOID)DriverParams.FirstParameter, 0, MEM_RELEASE);  // Free temporary database
 		Sleep(30000);  // Sleep for 30 seconds
 	}

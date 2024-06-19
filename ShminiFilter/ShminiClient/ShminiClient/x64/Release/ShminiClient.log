@@ -1,7 +1,6 @@
 ﻿  ShminiClient.cpp
-H:\Drivers\ShminiFilter\ShminiClient\ShminiClient.cpp(219,66): warning C4311: 'type cast': pointer truncation from 'HANDLE' to 'DWORD'
-H:\Drivers\ShminiFilter\ShminiClient\ShminiClient.cpp(219,66): warning C4302: 'type cast': truncation from 'HANDLE' to 'DWORD'
-H:\Drivers\ShminiFilter\ShminiClient\ShminiClient.cpp(244,80): warning C4244: 'argument': conversion from 'ULONG64' to 'DWORD', possible loss of data
+H:\Drivers\ShminiFilter\ShminiClient\ShminiClient.cpp(220,66): warning C4311: 'type cast': pointer truncation from 'HANDLE' to 'DWORD'
+H:\Drivers\ShminiFilter\ShminiClient\ShminiClient.cpp(220,66): warning C4302: 'type cast': truncation from 'HANDLE' to 'DWORD'
   Generating code
   Previous IPDB not found, fall back to full compilation.
   All 10 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.

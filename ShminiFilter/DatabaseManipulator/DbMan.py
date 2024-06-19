@@ -185,7 +185,7 @@ def main():
     if len(sys.argv) != 2:
         print("[-] Usage: python.exe DatabaseManipulator.py name_of_relative_entry")
         return False
-    if os.path.exists(sys.argv[1]):
+    if not os.path.exists(sys.argv[1]):
         print("[-] Usage: python.exe DatabaseManipulator.py existing_name_of_relative_entry")
         return False
     with open(sys.argv[1], 'rb') as database_update:
@@ -197,23 +197,23 @@ def main():
     dbcursor = sqlite_conn.cursor()  # Used to send queries to DB
     sqlite_conn.execute("""
                             CREATE TABLE IF NOT EXISTS special_events (
-                            TEXT entry_size,
-                            TEXT calling_process,
-                            TEXT module_descriptor,
-                            TEXT information_size,
-                            TEXT timestamp,
-                            TEXT execution_context,
-                            TEXT information_type, 
-                            TEXT operation_descriptor,
-                            TEXT file_name,
-                            TEXT name_extension,
-                            TEXT parent_directory,    
-                            TEXT share,
-                            TEXT stream,
-                            TEXT volume,       
-                            TEXT special_string,
-                            TEXT security_info,
-                            TEXT sharing_info
+                            entry_size TEXT,
+                            calling_process TEXT,
+                            module_descriptor TEXT,
+                            information_size TEXT,
+                            timestamp TEXT,
+                            execution_context TEXT,
+                            information_type TEXT, 
+                            operation_descriptor TEXT,
+                            file_name TEXT,
+                            name_extension TEXT,
+                            parent_directory TEXT,    
+                            share TEXT,
+                            stream TEXT,
+                            volume TEXT,       
+                            special_string TEXT,
+                            security_info TEXT,
+                            sharing_info TEXT
                             );
                             """)
     sqlite_conn.commit()

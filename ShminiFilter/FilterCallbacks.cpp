@@ -14,9 +14,8 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::CreateFilterCallback(_In
     PFLT_PARAMETERS FilterParameters = NULL;
     PVOID DatabaseEntry = NULL;
     UNICODE_STRING TriggerAccessDeniedParentDir = RTL_CONSTANT_STRING(L"\\VeryImportantStuffDeleteProtection\\");
+    UNICODE_STRING TriggerDeleteBackup = RTL_CONSTANT_STRING(L"\\VeryImportantStuffBackup\\");
     UNICODE_STRING BackupDirectory = RTL_CONSTANT_STRING(L"\\DeleteBackupShminiFilter\\C");
-    WCHAR BackupFilePath[1024] = { 0 };
-    WCHAR FullDeletedPath[1024] = { 0 };
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
     UNICODE_STRING FileExtension = { 0 };
     UNICODE_STRING FileName = { 0 };
@@ -66,12 +65,11 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::CreateFilterCallback(_In
         else {
 
             // Create paths for the deleted file and the backup file:
-            wcscat_s(BackupFilePath, BackupDirectory.Buffer);
-            wcscat_s(BackupFilePath, NameInfo->ParentDir.Buffer);
-            wcscat_s(BackupFilePath, NameInfo->Name.Buffer);
-            wcscat_s(FullDeletedPath, NameInfo->ParentDir.Buffer);
-            wcscat_s(FullDeletedPath, NameInfo->Name.Buffer);
-            HelperFunctions::CreateBackupOfFile(FullDeletedPath, BackupFilePath);
+            if (HelperFunctions::IsInParentDirectory(&NameInfo->ParentDir, &TriggerDeleteBackup)) {
+                DbgPrintEx(0, 0, "Shminifilter preoperation - Backup parameters: %ws, %ws, %ws, %ws, %ws\n", BackupDirectory.Buffer,
+                    NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer, NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer);
+                HelperFunctions::CreateBackupOfFile(&BackupDirectory, NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer);
+            }
         }
     }
 
@@ -98,10 +96,9 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
     PVOID DatabaseEntry = NULL;
     UNICODE_STRING TriggerAccessDeniedParentDir = RTL_CONSTANT_STRING(L"\\VeryImportantStuffDeleteProtection\\");
     UNICODE_STRING TriggerDeniedRenameParentDir = RTL_CONSTANT_STRING(L"\\VeryImportantStuffRenameProtection\\");
+    UNICODE_STRING TriggerDeleteBackup = RTL_CONSTANT_STRING(L"\\VeryImportantStuffBackup\\");
     UNICODE_STRING TriggerDeniedRenameName = RTL_CONSTANT_STRING(L"CannotRenameToThisName");
     UNICODE_STRING BackupDirectory = RTL_CONSTANT_STRING(L"\\BackupShminiFilterDelete\\C");
-    WCHAR BackupFilePath[1024] = { 0 };
-    WCHAR FullDeletedPath[1024] = { 0 };
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
     UNICODE_STRING FileExtension = { 0 };
     UNICODE_STRING FileName = { 0 };
@@ -165,8 +162,8 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
 
     case FileEndOfFileInformation:
         EndOfFileParameters = (PFILE_END_OF_FILE_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
-        DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, changing file size to %llu\n",
-            EndOfFileParameters->EndOfFile.QuadPart);
+        //DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, changing file size to %llu\n",
+        //    EndOfFileParameters->EndOfFile.QuadPart);
         break;
 
     case FilePositionInformation:
@@ -184,10 +181,10 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
 
     case FileBasicInformation:
         BasicParameters = (PFILE_BASIC_INFORMATION)Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
-        DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, new basic information: %llu, %llu, %llu, %llu, %lu\n",
-            BasicParameters->ChangeTime.QuadPart, BasicParameters->CreationTime.QuadPart,
-            BasicParameters->LastAccessTime.QuadPart, BasicParameters->LastWriteTime.QuadPart, 
-            BasicParameters->FileAttributes);
+        //DbgPrintEx(0, 0, "Shminifilter preoperation - setinfo-pre operation, new basic information: %llu, %llu, %llu, %llu, %lu\n",
+        //    BasicParameters->ChangeTime.QuadPart, BasicParameters->CreationTime.QuadPart,
+        //    BasicParameters->LastAccessTime.QuadPart, BasicParameters->LastWriteTime.QuadPart, 
+        //    BasicParameters->FileAttributes);
         break;
 
     default:
@@ -216,12 +213,11 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
         else {
 
             // Create paths for the deleted file and the backup file:
-            wcscat_s(BackupFilePath, BackupDirectory.Buffer);
-            wcscat_s(BackupFilePath, NameInfo->ParentDir.Buffer);
-            wcscat_s(BackupFilePath, NameInfo->Name.Buffer);
-            wcscat_s(FullDeletedPath, NameInfo->ParentDir.Buffer);
-            wcscat_s(FullDeletedPath, NameInfo->Name.Buffer);
-            HelperFunctions::CreateBackupOfFile(FullDeletedPath, BackupFilePath);
+            if (HelperFunctions::IsInParentDirectory(&NameInfo->ParentDir, &TriggerDeleteBackup)) {
+                DbgPrintEx(0, 0, "Shminifilter preoperation - Backup parameters: %ws, %ws, %ws, %ws, %ws\n", BackupDirectory.Buffer,
+                    NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer, NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer);
+                HelperFunctions::CreateBackupOfFile(&BackupDirectory, NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer);
+            }
         }
     }
     else {
@@ -253,16 +249,18 @@ FLT_PREOP_CALLBACK_STATUS FLTAPI PreOperationCallbacks::SetInformationFilterCall
 
     InvalidNameCheck:
         if (IsRenameShort) {
-            RenameUnicode.Buffer = ShortNameParameters->FileName;
-            RenameUnicode.Length = ShortNameParameters->FileNameLength;
-            RenameUnicode.MaximumLength = ShortNameParameters->FileNameLength + sizeof(WCHAR);
+            if (ShortNameParameters != NULL) {
+                RenameUnicode.Buffer = ShortNameParameters->FileName;
+                RenameUnicode.Length = ShortNameParameters->FileNameLength;
+                RenameUnicode.MaximumLength = ShortNameParameters->FileNameLength + sizeof(WCHAR);
+            }
         }
         else {
             RenameUnicode.Buffer = RenameParameters->FileName;
             RenameUnicode.Length = wcslen(RenameParameters->FileName) * sizeof(WCHAR);
             RenameUnicode.MaximumLength = (wcslen(RenameParameters->FileName) + 1) * sizeof(WCHAR);
         }
-        if (RtlCompareUnicodeString(&TriggerDeniedRenameName, &RenameUnicode, TRUE) == 0) {
+        if (RenameUnicode.Buffer != NULL && RtlCompareUnicodeString(&TriggerDeniedRenameName, &RenameUnicode, TRUE) == 0) {
             DatabaseCallbacks::IncrementDetected();
             DbgPrintEx(0, 0, "-- Rename is to a blocked file name (file name = %wZ), blocking rename ...\n",
                 &RenameUnicode);
@@ -389,12 +387,12 @@ FLT_PREOP_CALLBACK_STATUS PreOperationCallbacks::FileSystemControlFilterCallback
         PassingMethod = METHOD_NEITHER;
     }
     if (FromKernel) {
-        DbgPrintEx(0, 0, "ShminiFilter pre-operation - FSCTL %lu passed from KM component, parameters: %p, %p, %lu, %lu, %p method: %lu\n",
-            RelatedFsctl, InputBuffer, OutputBuffer, InputBufferSize, OutputBufferSize, RelatedMdl, PassingMethod);
+        //DbgPrintEx(0, 0, "ShminiFilter pre-operation - FSCTL %lu passed from KM component, parameters: %p, %p, %lu, %lu, %p method: %lu\n",
+        //    RelatedFsctl, InputBuffer, OutputBuffer, InputBufferSize, OutputBufferSize, RelatedMdl, PassingMethod);
     }
     else {
-        DbgPrintEx(0, 0, "ShminiFilter pre-operation - FSCTL %lu passed from UM component, parameters: %p, %p, %lu, %lu, %p method: %lu\n",
-            RelatedFsctl, InputBuffer, OutputBuffer, InputBufferSize, OutputBufferSize, RelatedMdl, PassingMethod);
+        //DbgPrintEx(0, 0, "ShminiFilter pre-operation - FSCTL %lu passed from UM component, parameters: %p, %p, %lu, %lu, %p method: %lu\n",
+        //    RelatedFsctl, InputBuffer, OutputBuffer, InputBufferSize, OutputBufferSize, RelatedMdl, PassingMethod);
     }
     
     FinishLabel:
@@ -411,6 +409,7 @@ FLT_PREOP_CALLBACK_STATUS PreOperationCallbacks::WriteFilterCallback(_Inout_ PFL
     UNREFERENCED_PARAMETER(CompletionContext);
     PVOID DatabaseEntry = NULL;
     UNICODE_STRING TriggerDeniedWriteParentDir = RTL_CONSTANT_STRING(L"\\VeryImportantStuffWriteProtection\\");
+    UNICODE_STRING TriggerWriteBackup = RTL_CONSTANT_STRING(L"\\VeryImportantStuffBackup\\");
     UNICODE_STRING TriggerDeniedWriteName = RTL_CONSTANT_STRING(L"CannotWriteIntoThisName");
     UNICODE_STRING BackupDirectory = RTL_CONSTANT_STRING(L"\\BackupShminiFilterWrite\\C");
     UNICODE_STRING TriggerEncryptName = RTL_CONSTANT_STRING(L"encrypt_my_write.txt");
@@ -421,8 +420,6 @@ FLT_PREOP_CALLBACK_STATUS PreOperationCallbacks::WriteFilterCallback(_Inout_ PFL
     FLT_PREOP_CALLBACK_STATUS FilterStatus = FLT_PREOP_SYNCHRONIZE;
     ULONG VulnDataIndex = 0;
     char MultipleSpecial[1024] = { 0 };
-    WCHAR BackupFilePath[1024] = { 0 };
-    WCHAR FullWritePath[1024] = { 0 };
 
 
     // Get the file information:
@@ -517,12 +514,11 @@ FLT_PREOP_CALLBACK_STATUS PreOperationCallbacks::WriteFilterCallback(_Inout_ PFL
     else {
 
         // If nothing is wrong with the write parameters - backup last version of file:
-        wcscat_s(BackupFilePath, BackupDirectory.Buffer);
-        wcscat_s(BackupFilePath, NameInfo->ParentDir.Buffer);
-        wcscat_s(BackupFilePath, NameInfo->Name.Buffer);
-        wcscat_s(FullWritePath, NameInfo->ParentDir.Buffer);
-        wcscat_s(FullWritePath, NameInfo->Name.Buffer);
-        HelperFunctions::CreateBackupOfFile(FullWritePath, BackupFilePath);
+        if (HelperFunctions::IsInParentDirectory(&NameInfo->ParentDir, &TriggerWriteBackup)) {
+            DbgPrintEx(0, 0, "Shminifilter preoperation - Backup parameters: %ws, %ws, %ws, %ws, %ws\n", BackupDirectory.Buffer,
+                NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer, NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer);
+            HelperFunctions::CreateBackupOfFile(&BackupDirectory, NameInfo->ParentDir.Buffer, NameInfo->Name.Buffer);
+        }
     }
 
     FinishLabel:

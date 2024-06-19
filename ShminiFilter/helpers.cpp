@@ -637,52 +637,92 @@ void HelperFunctions::HideFileContent(LPSTR FileContent, int HidingIndex, LPSTR 
 }
 
 
-BOOL HelperFunctions::CreateBackupOfFile(LPWSTR LastFilePath, LPWSTR BackupFilePath) {
+BOOL HelperFunctions::CreateBackupOfFile(PUNICODE_STRING BackupRootDir, LPWSTR ParentDirectory, LPWSTR FileName) {
 	HANDLE LastFile = NULL;
 	HANDLE BackupFile = NULL;
 	UNICODE_STRING LastUnicode = { 0 };
 	UNICODE_STRING BackupUnicode = { 0 };
+	UNICODE_STRING LastParentDirUnicode = { 0 };
 	OBJECT_ATTRIBUTES LastAttrs = { 0 };
 	OBJECT_ATTRIBUTES BackupAttrs = { 0 };
+	OBJECT_ATTRIBUTES LastParentDirAttrs = { 0 };
 	IO_STATUS_BLOCK StatusBlock = { 0 };
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PVOID LastFileData = NULL;
 	ULONG64 LastFileSize = 0;
 	FILE_STANDARD_INFORMATION LastInformation = { 0 };
-	RtlInitUnicodeString(&LastUnicode, LastFilePath);
+	WCHAR BackupFilePath[1024] = { 0 };
+	WCHAR FullFilePath[1024] = { 0 };
+	BOOL OnlyUseParent = FALSE;  // In some cases, parent directory will hold the needed path
+	wcscat_s(FullFilePath, ParentDirectory);
+	wcscat_s(FullFilePath, FileName);
+	RtlInitUnicodeString(&LastUnicode, FullFilePath);
 	InitializeObjectAttributes(&LastAttrs, &LastUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
 		NULL, NULL);
-	RtlInitUnicodeString(&BackupUnicode, BackupFilePath);
-	InitializeObjectAttributes(&BackupAttrs, &BackupUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-		NULL, NULL);
 
 
-	// Read last file data to copy it into backup file:
+	// Get a handle to the file to back up:
 	Status = ZwCreateFile(&LastFile, SYNCHRONIZE | GENERIC_READ, &LastAttrs, &StatusBlock,
 		NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN,
 		FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
 	if (!NT_SUCCESS(Status) || LastFile == NULL) {
-		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_create)\n");
-		return FALSE;
+		if (Status == STATUS_OBJECT_PATH_NOT_FOUND) {
+
+			// Try to use only the parent directory:
+			RtlInitUnicodeString(&LastParentDirUnicode, ParentDirectory);
+			InitializeObjectAttributes(&LastParentDirAttrs, &LastParentDirUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+				NULL, NULL);
+			Status = ZwCreateFile(&LastFile, SYNCHRONIZE | GENERIC_READ, &LastParentDirAttrs, &StatusBlock,
+				NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN,
+				FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+			if (NT_SUCCESS(Status) && LastFile != NULL) {
+				OnlyUseParent = TRUE;
+			}
+			else {
+				DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_create, 0x%x, %ws)\n",
+					Status, ParentDirectory);
+				return FALSE;
+			}
+		}
+		else {
+			DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_create, 0x%x)\n", Status);
+			return FALSE;
+		}
 	}
+
+
+	// Change backup path if path is only in parent directory:
+	wcscat_s(BackupFilePath, BackupRootDir->Buffer);
+	wcscat_s(BackupFilePath, ParentDirectory);
+	if (!OnlyUseParent) {
+		wcscat_s(BackupFilePath, FileName);
+	}
+	RtlInitUnicodeString(&BackupUnicode, BackupFilePath);
+	InitializeObjectAttributes(&BackupAttrs, &BackupUnicode, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+
+
+	// Get file size and allocate memory for file information:
 	Status = NtQueryInformationFile(LastFile, &StatusBlock,
 		&LastInformation, sizeof(LastInformation), FileStandardInformation);
 	if (!NT_SUCCESS(Status) || LastFile == NULL) {
-		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_size)\n");
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_size, 0x%x)\n", Status);
 		ZwClose(LastFile);
 		return FALSE;
 	}
 	LastFileSize = LastInformation.EndOfFile.QuadPart;
 	LastFileData = ExAllocatePoolWithTag(NonPagedPool, LastFileSize, 'DfBd');
 	if (LastFileData == NULL) {
-		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_alloc)\n");
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_alloc, 0x%x)\n", Status);
 		ZwClose(LastFile);
 		return FALSE;
 	}
+
+
+	// Read the file information into the buffer:
 	Status = ZwReadFile(LastFile, NULL, NULL, NULL, &StatusBlock, LastFileData, (ULONG)LastFileSize,
 		NULL, NULL);
 	if (!NT_SUCCESS(Status)) {
-		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_read)\n");
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (last_read, 0x%x)\n", Status);
 		ExFreePool(LastFileData);
 		ZwClose(LastFile);
 		return FALSE;
@@ -695,19 +735,47 @@ BOOL HelperFunctions::CreateBackupOfFile(LPWSTR LastFilePath, LPWSTR BackupFileP
 		NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_SUPERSEDE,
 		FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
 	if (!NT_SUCCESS(Status) || BackupFile == NULL) {
-		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (bck_create)\n");
+		if (OnlyUseParent) {
+			DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (bck_create, 0x%x, %wZ)\n",
+				Status, BackupAttrs.ObjectName);
+		}
 		ExFreePool(LastFileData);
 		return FALSE;
 	}
 	Status = ZwWriteFile(BackupFile, NULL, NULL, NULL, &StatusBlock, LastFileData, (ULONG)LastFileSize,
 		NULL, NULL);
 	if (!NT_SUCCESS(Status)) {
-		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (bck_write)\n");
+		DbgPrintEx(0, 0, "Shminifilter preoperation - Backup of last file failed (bck_write, 0x%x)\n", Status);
 		return FALSE;
 	}
 	ExFreePool(LastFileData);
 	ZwClose(BackupFilePath);
 	return TRUE;
+}
+
+
+void HelperFunctions::IncrementBuffer(ULONG64* Buffer, BOOL IsIdentifier, ULONG64* GlobalIndentifierCounter) {
+	if (!IsIdentifier) {
+		if (Buffer != NULL) {
+			if (*Buffer == 0xFFFFFFFFFFFFFFFF) {
+				*Buffer = 0;  // Prevent overflow
+			}
+			else {
+				*Buffer++;
+			}
+		}
+	}
+	else {
+		if (GlobalIndentifierCounter != NULL) {
+			if (*GlobalIndentifierCounter == 0xFFFFFFFFFFFFFFFF) {
+				*GlobalIndentifierCounter = 0;
+			}
+			else {
+				*GlobalIndentifierCounter++;
+			}
+			*Buffer = *GlobalIndentifierCounter;
+		}
+	}
 }
 
 
