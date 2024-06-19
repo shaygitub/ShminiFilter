@@ -11,13 +11,13 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   1) protection against seeing files inside a disclosed parent directory (manipulation of list returned by NtQueryDirectoryFile)
 - IRP_MJ_SET_INFORMATION:
   1) protection against deletion of files inside a disclosed parent directory with IRP_MJ_SET_INFORMATION as the deletion primitive
-  2) backup system of any undisclosed deleted files, saves the last version of the file before the deletion
+  2) backup system of any undisclosed deleted files, saves the last version of the file before the deletion (currently only for specific paths)
   3) protection against copying a file into a disclosed path (with FileRenameInformation/Ex)
   4) protection against rename of a file to a certain file name (also FileRenameInformation/Ex)
   5) logging of different file changes with different operation flags
 - IRP_MJ_CREATE:
   1) protection against deletion of files inside a disclosed parent directory with IRP_MJ_CREATE as the deletion primitive
-  2) backup system of any undisclosed deleted files, saves the last version of the file before the deletion
+  2) backup system of any undisclosed deleted files, saves the last version of the file before the deletion (currently only for specific paths)
   3) protection against getting a handle to a file/folder inside a disclosed directory
  - IRP_MJ_CLEANUP:
   1) regular tracing of calls to cleanup an object provided (usually a handle closed with CloseHandle/NtClose)
@@ -27,7 +27,7 @@ the system already) and communicates with the driver using IOCTLs to get the gen
   1) Preventing writing information to specific root directories/files/directories
   2) Prevention of written vulnurable plaintext information by detecting known prefix patterns and writing only the information before these patterns
   3) encryption of all written information to specific files (also used AES here)
-  4) if the write is valid, backup of the file before the last write operation is performed
+  4) if the write is valid, backup of the file before the last write operation is performed (currently only for specific paths)
 
   # Logging system of the driver and transfer to the UM program:
   1) the driver always saves a struct at the beginning of the allocated non-paged memory named MINIFILTER_STARTINFO. this struct includes basic
